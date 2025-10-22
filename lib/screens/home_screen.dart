@@ -4,6 +4,7 @@ import '../providers/task_provider.dart';
 import '../models/task.dart';
 import '../widgets/task_card.dart';
 import 'add_task_screen.dart';
+import 'edit_task_screen.dart';
 
 /// Home Screen - Main screen displaying all tasks
 class HomeScreen extends StatefulWidget {
@@ -388,17 +389,7 @@ class _HomeScreenState extends State<HomeScreen>
     // Navigate to Edit Task Screen (will be created in Ticket #10)
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Task'),
-        content:
-            const Text('Edit Task screen will be implemented in Ticket #10'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      builder: (context) => EditTaskScreen(task: task),
     );
   }
 
