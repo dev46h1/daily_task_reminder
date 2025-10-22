@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/task_provider.dart';
 import '../models/task.dart';
 import '../widgets/task_card.dart';
+import 'add_task_screen.dart';
 
 /// Home Screen - Main screen displaying all tasks
 class HomeScreen extends StatefulWidget {
@@ -37,22 +38,19 @@ class _HomeScreenState extends State<HomeScreen>
     await provider.refresh();
   }
 
-  void _showAddTaskDialog() {
-    // Navigate to Add Task Screen (will be created in Ticket #9)
-    // For now, show a temporary dialog
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Task'),
-        content: const Text('Add Task screen will be implemented in Ticket #9'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
+  Future<void> _showAddTaskDialog() async {
+    // Navigate to Add Task Screen
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddTaskScreen(),
       ),
     );
+
+    // Refresh tasks if a new task was added
+    if (result == true && mounted) {
+      await _onRefresh();
+    }
   }
 
   @override
