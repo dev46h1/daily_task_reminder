@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'providers/task_provider.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
 import 'services/alarm_manager_service.dart';
+// Import for Task model
 import 'models/task.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize all services
+  // Initialize services
   final notificationService = NotificationService();
   final alarmManagerService = AlarmManagerService();
 
   await notificationService.initialize();
   await alarmManagerService.initialize();
-
-  // Register background tasks
   await alarmManagerService.registerPeriodicCheck();
 
   runApp(const MyApp());
@@ -25,307 +26,218 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Daily Task Reminder - Testing',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+    return ChangeNotifierProvider(
+      create: (context) => TaskProvider()..initialize(),
+      child: MaterialApp(
+        title: 'Daily Task Reminder',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const ProviderTestScreen(),
       ),
-      home: const ComprehensiveTestScreen(),
     );
   }
 }
 
-class ComprehensiveTestScreen extends StatefulWidget {
-  const ComprehensiveTestScreen({super.key});
+class ProviderTestScreen extends StatefulWidget {
+  const ProviderTestScreen({super.key});
 
   @override
-  State<ComprehensiveTestScreen> createState() =>
-      _ComprehensiveTestScreenState();
+  State<ProviderTestScreen> createState() => _ProviderTestScreenState();
 }
 
-class _ComprehensiveTestScreenState extends State<ComprehensiveTestScreen>
-    with SingleTickerProviderStateMixin {
-  final NotificationService _notificationService = NotificationService();
-  final AlarmManagerService _alarmManager = AlarmManagerService();
-  final DatabaseService _databaseService = DatabaseService();
-
-  List<String> _logs = [];
-  Map<String, dynamic> _statistics = {};
-  late TabController _tabController;
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _initialize();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _initialize() async {
-    await _updateStatistics();
-    _addLog('✅ All services initialized');
-  }
+class _ProviderTestScreenState extends State<ProviderTestScreen> {
+  final List<String> _logs = [];
 
   void _addLog(String message) {
     setState(() {
       final timestamp = TimeOfDay.now().format(context);
       _logs.insert(0, '$timestamp: $message');
-      if (_logs.length > 50) _logs.removeLast();
+      if (_logs.length > 100) _logs.removeLast();
     });
-  }
-
-  Future<void> _updateStatistics() async {
-    setState(() => _isLoading = true);
-    try {
-      final stats = await _alarmManager.getAlarmStatistics();
-      setState(() => _statistics = stats);
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // === Notification Tests ===
-
-  Future<void> _testImmediateNotification() async {
-    final success = await _notificationService.showImmediateNotification(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
-      title: 'Test Notification',
-      body: 'Immediate test notification',
-    );
-    _addLog(success ? '✅ Immediate notification sent' : '❌ Failed');
-    await _updateStatistics();
-  }
-
-  Future<void> _testSchedule10Seconds() async {
-    final now = DateTime.now();
-    final testTime = now.add(const Duration(seconds: 10));
-
-    final task = Task(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
-      title: 'Test Alarm (10s)',
-      description: 'This alarm was scheduled 10 seconds ago',
-      reminderTime: TimeOfDay(hour: testTime.hour, minute: testTime.minute),
-      isActive: true,
-    );
-
-    final success = await _alarmManager.scheduleExactAlarm(task);
-    _addLog(success ? '✅ Alarm scheduled for 10 seconds' : '❌ Failed');
-    await _updateStatistics();
-  }
-
-  Future<void> _testSchedule1Minute() async {
-    final now = DateTime.now();
-    final testTime = now.add(const Duration(minutes: 1));
-
-    final task = Task(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
-      title: 'Test Alarm (1min)',
-      description: 'This alarm was scheduled 1 minute ago',
-      reminderTime: TimeOfDay(hour: testTime.hour, minute: testTime.minute),
-      isActive: true,
-    );
-
-    final success = await _alarmManager.scheduleExactAlarm(task);
-    _addLog(success ? '✅ Alarm scheduled for 1 minute' : '❌ Failed');
-    await _updateStatistics();
-  }
-
-  Future<void> _testDailyTask() async {
-    final task = Task(
-      id: DateTime.now().millisecondsSinceEpoch % 100000,
-      title: 'Daily Morning Exercise',
-      description: 'Time for your workout!',
-      reminderTime: const TimeOfDay(hour: 7, minute: 0),
-      isActive: true,
-    );
-
-    final success = await _alarmManager.scheduleExactAlarm(task);
-    _addLog(success ? '✅ Daily task scheduled for 7:00 AM' : '❌ Failed');
-    await _updateStatistics();
-  }
-
-  // === Alarm Manager Tests ===
-
-  Future<void> _testRescheduleAll() async {
-    final success = await _alarmManager.rescheduleAllNow();
-    _addLog(success ? '✅ All alarms rescheduled' : '❌ Reschedule failed');
-    await _updateStatistics();
-  }
-
-  Future<void> _testPeriodicCheck() async {
-    final success = await _alarmManager.registerPeriodicCheck();
-    _addLog(success ? '✅ Periodic check registered (6 hours)' : '❌ Failed');
-  }
-
-  Future<void> _testBootTask() async {
-    final success = await _alarmManager.scheduleBootTask();
-    _addLog(success ? '✅ Boot reschedule task registered' : '❌ Failed');
-  }
-
-  Future<void> _testTimezoneChange() async {
-    final success = await _alarmManager.handleTimezoneChange();
-    _addLog(success ? '✅ Timezone change handled' : '❌ Failed');
-    await _updateStatistics();
-  }
-
-  Future<void> _testAlarmReliability() async {
-    _addLog('🧪 Running alarm reliability test...');
-    await _alarmManager.testAlarmReliability();
-    _addLog('✅ Reliability test complete (check console)');
-    await _updateStatistics();
-  }
-
-  // === View/Cancel Operations ===
-
-  Future<void> _viewPendingNotifications() async {
-    final pending = await _notificationService.getPendingNotifications();
-    _addLog('📋 Pending notifications: ${pending.length}');
-    for (final notification in pending.take(5)) {
-      _addLog('  - ${notification.title} (ID: ${notification.id})');
-    }
-    if (pending.length > 5) {
-      _addLog('  ... and ${pending.length - 5} more');
-    }
-  }
-
-  Future<void> _cancelAllNotifications() async {
-    final success = await _notificationService.cancelAllNotifications();
-    _addLog(success ? '🗑️ All notifications cancelled' : '❌ Failed');
-    await _updateStatistics();
-  }
-
-  Future<void> _cancelBackgroundTasks() async {
-    final success = await _alarmManager.cancelAllBackgroundTasks();
-    _addLog(success ? '🗑️ Background tasks cancelled' : '❌ Failed');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Alarm Manager Test Suite'),
+        title: const Text('TaskProvider Test Suite'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.science), text: 'Tests'),
-            Tab(icon: Icon(Icons.analytics), text: 'Stats'),
-            Tab(icon: Icon(Icons.list), text: 'Logs'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildTestTab(),
-          _buildStatisticsTab(),
-          _buildLogsTab(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              context.read<TaskProvider>().refresh();
+              _addLog('🔄 Tasks refreshed');
+            },
+          ),
         ],
+      ),
+      body: Consumer<TaskProvider>(
+        builder: (context, provider, child) {
+          return Column(
+            children: [
+              // Statistics Card
+              _buildStatisticsCard(provider),
+
+              // Test Buttons
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSection(
+                        'Quick Actions',
+                        Icons.flash_on,
+                        Colors.blue,
+                        [
+                          _buildTestButton(
+                            'Create Sample Tasks',
+                            Icons.add_circle,
+                            () => _createSampleTasks(provider),
+                          ),
+                          _buildTestButton(
+                            'Add Random Task',
+                            Icons.add,
+                            () => _addRandomTask(provider),
+                          ),
+                          _buildTestButton(
+                            'Toggle First Task',
+                            Icons.toggle_on,
+                            () => _toggleFirstTask(provider),
+                          ),
+                          _buildTestButton(
+                            'Delete Last Task',
+                            Icons.delete,
+                            () => _deleteLastTask(provider),
+                            isDanger: true,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildSection(
+                        'Task List',
+                        Icons.list,
+                        Colors.green,
+                        [
+                          _buildTaskList(provider),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildSection(
+                        'Activity Logs',
+                        Icons.history,
+                        Colors.orange,
+                        [
+                          _buildLogsList(),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddTaskDialog(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Add Task'),
       ),
     );
   }
 
-  Widget _buildTestTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildSection(
-            'Quick Notification Tests',
-            Icons.notifications_active,
-            Colors.blue,
-            [
-              _buildTestButton(
-                'Immediate',
-                Icons.flash_on,
-                _testImmediateNotification,
+  Widget _buildStatisticsCard(TaskProvider provider) {
+    final stats = provider.getStatistics();
+
+    return Card(
+      margin: const EdgeInsets.all(16),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.analytics, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  'Statistics',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  'Total',
+                  stats['totalTasks'].toString(),
+                  Colors.blue,
+                ),
+                _buildStatItem(
+                  'Active',
+                  stats['activeTasks'].toString(),
+                  Colors.green,
+                ),
+                _buildStatItem(
+                  'Inactive',
+                  stats['inactiveTasks'].toString(),
+                  Colors.orange,
+                ),
+                _buildStatItem(
+                  'Upcoming',
+                  stats['upcomingToday'].toString(),
+                  Colors.purple,
+                ),
+              ],
+            ),
+            if (provider.isLoading)
+              const Padding(
+                padding: EdgeInsets.only(top: 16),
+                child: LinearProgressIndicator(),
               ),
-              _buildTestButton(
-                '10 Seconds',
-                Icons.timer,
-                _testSchedule10Seconds,
+            if (provider.error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(
+                  'Error: ${provider.error}',
+                  style: const TextStyle(color: Colors.red),
+                ),
               ),
-              _buildTestButton(
-                '1 Minute',
-                Icons.schedule,
-                _testSchedule1Minute,
-              ),
-              _buildTestButton(
-                'Daily 7AM',
-                Icons.wb_sunny,
-                _testDailyTask,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSection(
-            'Alarm Manager Tests',
-            Icons.alarm,
-            Colors.orange,
-            [
-              _buildTestButton(
-                'Reschedule All',
-                Icons.refresh,
-                _testRescheduleAll,
-              ),
-              _buildTestButton(
-                'Register Periodic Check',
-                Icons.loop,
-                _testPeriodicCheck,
-              ),
-              _buildTestButton(
-                'Register Boot Task',
-                Icons.restart_alt,
-                _testBootTask,
-              ),
-              _buildTestButton(
-                'Test Timezone Change',
-                Icons.language,
-                _testTimezoneChange,
-              ),
-              _buildTestButton(
-                'Alarm Reliability Test',
-                Icons.verified,
-                _testAlarmReliability,
-                isPrimary: true,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSection(
-            'View & Cancel',
-            Icons.manage_search,
-            Colors.green,
-            [
-              _buildTestButton(
-                'View Pending',
-                Icons.list,
-                _viewPendingNotifications,
-              ),
-              _buildTestButton(
-                'Cancel All Notifications',
-                Icons.delete_sweep,
-                _cancelAllNotifications,
-                isDanger: true,
-              ),
-              _buildTestButton(
-                'Cancel Background Tasks',
-                Icons.block,
-                _cancelBackgroundTasks,
-                isDanger: true,
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -363,7 +275,6 @@ class _ComprehensiveTestScreenState extends State<ComprehensiveTestScreen>
     String label,
     IconData icon,
     VoidCallback onPressed, {
-    bool isPrimary = false,
     bool isDanger = false,
   }) {
     return Padding(
@@ -373,273 +284,384 @@ class _ComprehensiveTestScreenState extends State<ComprehensiveTestScreen>
         icon: Icon(icon),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          backgroundColor: isDanger
-              ? Colors.red.shade100
-              : isPrimary
-                  ? Colors.purple.shade100
-                  : null,
+          backgroundColor: isDanger ? Colors.red.shade100 : null,
           minimumSize: const Size.fromHeight(48),
         ),
       ),
     );
   }
 
-  Widget _buildStatisticsTab() {
-    return RefreshIndicator(
-      onRefresh: _updateStatistics,
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.analytics, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text(
-                              'System Statistics',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Divider(height: 24),
-                        if (_statistics.containsKey('error'))
-                          Text(
-                            'Error: ${_statistics['error']}',
-                            style: const TextStyle(color: Colors.red),
-                          )
-                        else
-                          ..._buildStatItems(),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  color: Colors.blue.shade50,
-                  child: const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text(
-                              'How It Works',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 12),
-                        Text(
-                          '• flutter_local_notifications schedules exact alarms\n'
-                          '• WorkManager checks every 6 hours for reliability\n'
-                          '• Boot receiver reschedules after device restart\n'
-                          '• All alarms survive app closure and device restart',
-                          style: TextStyle(fontSize: 14, height: 1.5),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  List<Widget> _buildStatItems() {
-    return [
-      _buildStatItem(
-        'Total Tasks',
-        _statistics['totalTasks']?.toString() ?? '0',
-        Icons.task,
-        Colors.blue,
-      ),
-      _buildStatItem(
-        'Active Tasks',
-        _statistics['activeTasks']?.toString() ?? '0',
-        Icons.check_circle,
-        Colors.green,
-      ),
-      _buildStatItem(
-        'Pending Notifications',
-        _statistics['pendingNotifications']?.toString() ?? '0',
-        Icons.notifications,
-        Colors.orange,
-      ),
-      _buildStatItem(
-        'Alarm Accuracy',
-        _statistics['alarmAccuracy'] ?? '0%',
-        Icons.verified,
-        Colors.purple,
-      ),
-      _buildStatItem(
-        'Last Check',
-        _statistics['lastCheckDate'] ?? 'Never',
-        Icons.history,
-        Colors.grey,
-        isLarge: true,
-      ),
-    ];
-  }
-
-  Widget _buildStatItem(
-    String label,
-    String value,
-    IconData icon,
-    Color color, {
-    bool isLarge = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: isLarge ? 14 : 18,
-                    fontWeight: isLarge ? FontWeight.normal : FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLogsTab() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildTaskList(TaskProvider provider) {
+    if (provider.tasks.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(
+          child: Column(
             children: [
-              const Text(
-                'Activity Log',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    '${_logs.length} entries',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() => _logs.clear());
-                    },
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Clear'),
-                  ),
-                ],
+              Icon(Icons.inbox, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'No tasks yet',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             ],
           ),
         ),
-        const Divider(height: 1),
-        Expanded(
-          child: _logs.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.inbox,
-                        size: 64,
-                        color: Colors.grey.shade400,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No activity yet',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Run tests to see logs here',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _logs.length,
-                  itemBuilder: (context, index) {
-                    final log = _logs[index];
-                    final isError = log.contains('❌');
-                    final isSuccess = log.contains('✅');
-                    final isWarning = log.contains('⚠️');
+      );
+    }
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      color: isError
-                          ? Colors.red.shade50
-                          : isSuccess
-                              ? Colors.green.shade50
-                              : isWarning
-                                  ? Colors.orange.shade50
-                                  : null,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          log,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontFamily: 'monospace',
-                            color: isError
-                                ? Colors.red.shade900
-                                : isSuccess
-                                    ? Colors.green.shade900
-                                    : null,
-                          ),
-                        ),
-                      ),
+    return Column(
+      children: provider.sortedTasks.map((task) {
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          color: task.isActive ? null : Colors.grey.shade100,
+          child: ListTile(
+            leading: Icon(
+              task.isActive ? Icons.check_circle : Icons.cancel,
+              color: task.isActive ? Colors.green : Colors.grey,
+            ),
+            title: Text(
+              task.title,
+              style: TextStyle(
+                decoration: task.isActive ? null : TextDecoration.lineThrough,
+              ),
+            ),
+            subtitle: Text(
+              '${task.getFormattedTime()} - ${task.description}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 20),
+                  onPressed: () => _showEditTaskDialog(context, task),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 20),
+                  onPressed: () => _deleteTask(provider, task.id!),
+                ),
+              ],
+            ),
+            onTap: () {
+              provider.toggleTaskActive(task.id!);
+              _addLog(
+                  '${task.isActive ? "Deactivated" : "Activated"}: ${task.title}');
+            },
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildLogsList() {
+    if (_logs.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(
+          child: Text(
+            'No activity yet',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 200,
+      child: ListView.builder(
+        itemCount: _logs.length,
+        itemBuilder: (context, index) {
+          final log = _logs[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              log,
+              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Action Methods
+
+  Future<void> _createSampleTasks(TaskProvider provider) async {
+    _addLog('📝 Creating sample tasks...');
+
+    final sampleTasks = [
+      Task(
+        title: '🌅 Morning Meditation',
+        description: 'Start the day with 10 minutes of meditation',
+        reminderTime: const TimeOfDay(hour: 6, minute: 0),
+        isActive: true,
+      ),
+      Task(
+        title: '💊 Take Vitamins',
+        description: 'Take daily vitamins with breakfast',
+        reminderTime: const TimeOfDay(hour: 8, minute: 0),
+        isActive: true,
+      ),
+      Task(
+        title: '🥗 Lunch Break',
+        description: 'Time for a healthy lunch',
+        reminderTime: const TimeOfDay(hour: 12, minute: 30),
+        isActive: true,
+      ),
+      Task(
+        title: '🚶 Evening Walk',
+        description: 'Walk for 20 minutes',
+        reminderTime: const TimeOfDay(hour: 18, minute: 0),
+        isActive: true,
+      ),
+      Task(
+        title: '📚 Reading Time',
+        description: 'Read for 30 minutes before bed',
+        reminderTime: const TimeOfDay(hour: 21, minute: 0),
+        isActive: true,
+      ),
+    ];
+
+    for (final task in sampleTasks) {
+      await provider.addTask(task);
+    }
+
+    _addLog('✅ Created ${sampleTasks.length} sample tasks');
+  }
+
+  Future<void> _addRandomTask(TaskProvider provider) async {
+    final random = DateTime.now().millisecondsSinceEpoch % 24;
+    final task = Task(
+      title: 'Random Task ${DateTime.now().millisecond}',
+      description: 'This is a randomly generated task',
+      reminderTime: TimeOfDay(hour: random, minute: 0),
+      isActive: true,
+    );
+
+    final success = await provider.addTask(task);
+    _addLog(success ? '✅ Random task added' : '❌ Failed to add task');
+  }
+
+  Future<void> _toggleFirstTask(TaskProvider provider) async {
+    if (provider.tasks.isEmpty) {
+      _addLog('⚠️ No tasks to toggle');
+      return;
+    }
+
+    final task = provider.tasks.first;
+    await provider.toggleTaskActive(task.id!);
+    _addLog('🔄 Toggled: ${task.title}');
+  }
+
+  Future<void> _deleteLastTask(TaskProvider provider) async {
+    if (provider.tasks.isEmpty) {
+      _addLog('⚠️ No tasks to delete');
+      return;
+    }
+
+    final task = provider.tasks.last;
+    final success = await provider.deleteTask(task.id!);
+    _addLog(success ? '🗑️ Deleted: ${task.title}' : '❌ Failed to delete');
+  }
+
+  Future<void> _deleteTask(TaskProvider provider, int taskId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Task'),
+        content: const Text('Are you sure you want to delete this task?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final task = provider.getTaskById(taskId);
+      final success = await provider.deleteTask(taskId);
+      _addLog(success ? '🗑️ Deleted: ${task?.title}' : '❌ Failed to delete');
+    }
+  }
+
+  void _showAddTaskDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+    TimeOfDay selectedTime = TimeOfDay.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add New Task'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLength: 50,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                  maxLength: 200,
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  title: const Text('Reminder Time'),
+                  subtitle: Text(selectedTime.format(context)),
+                  trailing: const Icon(Icons.access_time),
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: selectedTime,
                     );
+                    if (time != null) {
+                      setState(() => selectedTime = time);
+                    }
                   },
                 ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a title')),
+                  );
+                  return;
+                }
+
+                final task = Task(
+                  title: titleController.text,
+                  description: descController.text,
+                  reminderTime: selectedTime,
+                  isActive: true,
+                );
+
+                final provider = context.read<TaskProvider>();
+                final success = await provider.addTask(task);
+
+                if (success && context.mounted) {
+                  Navigator.pop(context);
+                  _addLog('✅ Added: ${task.title}');
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  void _showEditTaskDialog(BuildContext context, Task task) {
+    final titleController = TextEditingController(text: task.title);
+    final descController = TextEditingController(text: task.description);
+    TimeOfDay selectedTime = task.reminderTime;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Task'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLength: 50,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: descController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                  maxLength: 200,
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  title: const Text('Reminder Time'),
+                  subtitle: Text(selectedTime.format(context)),
+                  trailing: const Icon(Icons.access_time),
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: selectedTime,
+                    );
+                    if (time != null) {
+                      setState(() => selectedTime = time);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a title')),
+                  );
+                  return;
+                }
+
+                final updatedTask = task.copyWith(
+                  title: titleController.text,
+                  description: descController.text,
+                  reminderTime: selectedTime,
+                );
+
+                final provider = context.read<TaskProvider>();
+                final success = await provider.updateTask(updatedTask);
+
+                if (success && context.mounted) {
+                  Navigator.pop(context);
+                  _addLog('✅ Updated: ${updatedTask.title}');
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
