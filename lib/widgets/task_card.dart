@@ -106,6 +106,7 @@ class TaskCard extends StatelessWidget {
   }
 
   /// Build Task Content (Title, Description, Time)
+  /// Build Task Content (Title, Description, Time)
   Widget _buildTaskContent(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,8 +142,9 @@ class TaskCard extends StatelessWidget {
 
         const SizedBox(height: 8),
 
-        // Reminder Time Chip
+        // Reminder Time + Status Row (fixed)
         Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.access_time,
@@ -150,29 +152,35 @@ class TaskCard extends StatelessWidget {
               color: task.isActive ? Colors.blue : Colors.grey,
             ),
             const SizedBox(width: 4),
-            Text(
-              task.getFormattedTime(),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: task.isActive ? Colors.blue : Colors.grey,
+            Flexible(
+              child: Text(
+                task.getFormattedTime(),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: task.isActive ? Colors.blue : Colors.grey,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: task.isActive
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                task.isActive ? 'Active' : 'Inactive',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: task.isActive ? Colors.green : Colors.grey,
+            const SizedBox(width: 8),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: task.isActive
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  task.isActive ? 'Active' : 'Inactive',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: task.isActive ? Colors.green : Colors.grey,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
