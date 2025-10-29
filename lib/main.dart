@@ -1,61 +1,98 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'providers/task_provider.dart';
-import 'services/database_service.dart';
-import 'services/notification_service.dart';
-import 'services/alarm_manager_service.dart';
-import 'screens/home_screen.dart';
+import 'providers/auth_provider.dart';
+import 'providers/user_provider.dart';
+import 'screens/splash_screen.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/home/main_navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize services
-  final notificationService = NotificationService();
-  final alarmManagerService = AlarmManagerService();
-
-  await notificationService.initialize();
-  await alarmManagerService.initialize();
-  await alarmManagerService.registerPeriodicCheck();
-
-  runApp(const MyApp());
+  
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  
+  runApp(const HelperApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class HelperApp extends StatelessWidget {
+  const HelperApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => TaskProvider()..initialize(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
       child: MaterialApp(
-        title: 'Daily Task Reminder',
+        title: 'Helper - Peer-to-Peer Assistance',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.deepPurple,
+            seedColor: const Color(0xFF6C63FF),
             brightness: Brightness.light,
           ),
           useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            centerTitle: true,
+            elevation: 0,
+          ),
           cardTheme: CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 12,
+                horizontal: 32,
+                vertical: 16,
               ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
+          inputDecorationTheme: InputDecorationTheme(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+          ),
         ),
-        home: const HomeScreen(),
+        home: const AuthWrapper(),
       ),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        // Show splash screen while checking auth state
+        if (authProvider.isLoading) {
+          return const SplashScreen();
+        }
+
+        // Navigate based on auth state
+        if (authProvider.isAuthenticated) {
+          return const MainNavigation();
+        } else {
+          return const LoginScreen();
+        }
+      },
     );
   }
 }
